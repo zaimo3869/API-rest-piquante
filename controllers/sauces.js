@@ -24,30 +24,35 @@ exports.getOneSauce = (req, res, next) => {
     .then(sauce => res.status(200).json(sauce))
     .catch(error => res.status(404).json({ error: error }));
 };
-
 exports.modifySauce = (req, res, next) => {
-  const sauceObject = req.file
-    ? {
-        ...JSON.parse(req.body),
-        imageUrl: `${req.protocol}://${req.get("host")}/images/${
-          req.file.filename
-        }`,
-      }
-    : { ...req.body };
+  Sauce.findOne({ _id: req.params.id }).then(sauce => {
+    if (sauce.userId === res.userId) {
+      const sauceObject = req.file
+        ? {
+            ...JSON.parse(req.body),
+            imageUrl: `${req.protocol}://${req.get("host")}/images/${
+              req.file.filename
+            }`,
+          }
+        : { ...req.body };
 
-  Sauce.updateOne(
-    { _id: req.params.id },
-    { ...sauceObject, _id: req.params.id }
-  )
+      Sauce.updateOne(
+        { _id: req.params.id },
+        { ...sauceObject, _id: req.params.id }
+      )
 
-    .then(() => res.status(200).json({ message: "Sauce modifiée !" }))
-    .catch(error => res.status(400).json({ error }));
+        .then(() => res.status(200).json({ message: "Sauce modifiée !" }))
+        .catch(error => res.status(400).json({ error }));
+    } else {
+      res.status(401).json({ message: "Vous n'êtes pas autorisé !" });
+    }
+  });
 };
 
 exports.deleteSauce = (req, res, next) => {
   Sauce.findOne({ _id: req.params.id })
     .then(sauce => {
-      if (res.userId === sauce.userId) {
+      if (sauce.userId === res.userId) {
         const filename = sauce.imageUrl.split("/images/")[1];
         fs.unlink(`images/${filename}`, () => {
           Sauce.deleteOne({ _id: req.params.id })
@@ -55,11 +60,12 @@ exports.deleteSauce = (req, res, next) => {
             .catch(error => res.status(400).json({ error: error }));
         });
       } else {
-        res.status(400).json({ message: "pas authorise" });
+        res.status(401).json("Vous n'êtes pas autorisés");
       }
     })
     .catch(error => res.status(500).json({ error }));
 };
+
 exports.likeDislike = (req, res, next) => {
   Sauce.findById(req.params.id).then(sauce => {
     if (req.body.like == -1) {
